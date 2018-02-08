@@ -1,0 +1,13 @@
+## If you run this, it will update the software insert file.
+```
+from workflow_generator.cwl2workflow import rdict,add_software_to_insert
+add_software_to_insert('4dn-dcic/docker-4dn-repliseq', 'v11', '/Users/soo/git/fourfront/src/encoded/tests/data/inserts/software.json')
+```
+
+```
+from workflow_generator.cwl2workflow import *
+cwl=create_cwl_from_file("/Users/soo/git/pipelines-cwl/cwl_awsem/repliseq/repliseq-parta.cwl")
+wf = Workflow().create_from_cwl(cwl)
+wf.as_dict()
+```
+
