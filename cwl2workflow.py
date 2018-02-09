@@ -156,22 +156,13 @@ class Argument (object):
 
 class StepInput (object):
     def __init__(self, name=None,
-                 argument_type="Input file",  # "Input file" or "parameter"
-                 argument_format=None,
-                 argument_cardinality="single",
                  source_name=None,
-                 source_type=None,  # "Workflow Input File", "Workflow Parameter" or "Output file"
                  source_step=None):
 
         self.name = name
+        self.meta = {"global": False}  # default global false
 
-        self.meta = { "type": argument_type,
-                      "cardinality": argument_cardinality,
-                      "global": False }  # default global false
-        if argument_format:
-            self.meta.append({"file_format": argument_format})
-
-        if source_name or source_type:
+        if source_name:
             self.source = [{ "name": source_name }]
             if source_step:
                 self.source[0].append({"step": source_step})
@@ -201,54 +192,50 @@ class StepInput (object):
                 self.meta['global'] = True
 
         # add format (from global arguments)
-        self.add_fdn_format_from_cwl(cwl.inputs)
+        # self.add_fdn_tags_from_cwl(cwl.inputs)
 
         # individual format
         if cwl_stepinput.fdn_format:
             self.meta['file_format'] = cwl_stepinput.fdn_format
+        if cwl_stepinput.fdn_type:
+            self.meta['type'] = cwl_stepinput.fdn_type
+        if cwl_stepinput.fdn_cardinality:
+            self.meta['cardinality'] = cwl_stepinput.fdn_cardinality
 
         return self
 
 
-    def add_fdn_format_from_cwl(self, cwl_inputs):
+    def add_fdn_tags_from_cwl(self, cwl_inputs):
         """
         add fdn_format info for the step inputs that source to global input
         assumes self.source has already been filled in.
         """
-        is_workflow_input = False
         for tg in self.source:
-            if tg.get('type') == "Workflow Input File":
-                is_workflow_input = True
+            if 'step' not in tg:
+                self.meta['global'] = True
                 workflow_arg_name = tg.get('name')
                 break
 
-        if is_workflow_input:
+        if self.meta['global']:
             for op in cwl_inputs:
                 if op.name == workflow_arg_name:
                     self.meta['file_format'] = op.fdn_format
+                    self.meta['type'] = cwl_stepinput.fdn_type
+                    self.meta['cardinality'] = cwl_stepinput.fdn_cardinality
                     break
 
 
 class StepOutput (object):
     def __init__(self, name=None, 
-                 argument_type="Output processed file",  # "Output processed file", "Output QC file"
-                                                         # or "Output report file"
-                 argument_cardinality="single",
-                 argument_format=None,
                  target_name=None,
-                 target_type=None,  # "Workflow Output File", "Workflow Parameter" or "Input file"
                  target_step=None):
 
         self.name = name
         self.target = None
 
-        self.meta = { "type": argument_type,
-                      "cardinality": argument_cardinality,
-                      "global": False }
-        if argument_format:
-            self.meta.append({"file_format": argument_format})
+        self.meta = {"global": False}
 
-        if target_name or target_type:
+        if target_name:
             self.target = [{ "name": target_name }]
             if target_step:
                 self.target[0].append({"step": target_step})
@@ -271,11 +258,15 @@ class StepOutput (object):
         self.add_target_from_cwloutputs(parent_stepname, cwl.sourcetarget_list)
 
         # format (from global arguments)
-        self.add_fdn_format_from_cwl(cwl.outputs)
+        # self.add_fdn_tags_from_cwl(cwl.outputs)
 
         # individual format
         if cwl_stepoutput.fdn_format:
             self.meta['file_format'] = cwl_stepoutput.fdn_format
+        if cwl_stepoutput.fdn_type:
+            self.meta['type'] = cwl_stepoutput.fdn_type
+        if cwl_stepoutput.fdn_cardinality:
+            self.meta['cardinality'] = cwl_stepoutput.fdn_cardinality
 
         return self
 
@@ -288,7 +279,7 @@ class StepOutput (object):
             if st.source_step == parent_stepname and st.source_arg == self.name:
                 if not hasattr(self, 'target') or not self.target:
                     self.target = []
-                if hasattr(st, 'target') and st.target_step:
+                if st.target_step:
                     self.target.append({"name": st.target_arg,
                                         "step": st.target_step})
                 else:
@@ -296,23 +287,24 @@ class StepOutput (object):
                     self.meta['global'] = True
 
 
-    def add_fdn_format_from_cwl(self, cwl_outputs):
+    def add_fdn_tags_from_cwl(self, cwl_outputs):
         """
         add fdn_format info for the step outputs that target to global output
         assumes self.target has already been filled in.
         """
-        is_workflow_output = False
         if self.target:
             for tg in self.target:
-                if tg.get('type') == "Workflow Output File":
-                    is_workflow_output = True
+                if 'step' not in tg:
+                    self.meta['global'] = True
                     workflow_arg_name = tg.get('name')
                     break
 
-        if is_workflow_output:
+        if self.meta['global']:
             for op in cwl_outputs:
                 if op.name == workflow_arg_name:
                     self.meta['file_format'] = op.fdn_format
+                    self.meta['type'] = op.fdn_type
+                    self.meta['cardinality'] = op.fdn_cardinality
                     break
 
 
@@ -321,15 +313,14 @@ class StepOutput (object):
         add fdn_output_type info for the step outputs that target to global output
         assumes self.target has already been filled in.
         """
-        is_workflow_output = False
         if self.target:
             for tg in self.target:
                 if not tg.get('step'):
-                    is_workflow_output = True
+                    self.meta['global'] = True
                     workflow_arg_name = tg.get('name')
                     break
 
-        if is_workflow_output:
+        if self.meta['global']:
             for op in cwl_outputs:
                 if op.name == workflow_arg_name:
                     self.meta['argument_type'] = op.fdn_output_type
@@ -411,7 +402,7 @@ class CwlInput (object):
 
 
 class CwlStepOutput (object):
-    def __init__(self, id=None, fdn_format=None):
+    def __init__(self, id=None, fdn_format=None, fdn_type=None, fdn_cardinality=None):
         """
         take in elements of a cwl's 'steps::outputs' field (dictionary) as kwargs
         """
@@ -422,12 +413,14 @@ class CwlStepOutput (object):
         self.name = id.strip('#')
         self.step_name, self.arg_name = self.name.split('.')
 
-        # format
+        # 4dn tags
         self.fdn_format = fdn_format
+        self.fdn_type = fdn_type
+        self.fdn_cardinality = fdn_cardinality
 
 
 class CwlStepInput (object):
-    def __init__(self, id=None, source=None, fdn_format=None):
+    def __init__(self, id=None, source=None, fdn_format=None, fdn_type=None, fdn_cardinality=None):
         """
         take in elements of a cwl's 'steps::inputs' field (dictionary) as kwargs
         """
@@ -451,9 +444,10 @@ class CwlStepInput (object):
             self.source_step = None
             self.source_arg = None
 
-        # format
+        # 4dn tags
         self.fdn_format = fdn_format
-
+        self.fdn_type = fdn_type
+        self.fdn_cardinality = fdn_cardinality
 
     def get_sourcetarget(self):
         return SourceTarget(self.source_step, self.source_arg, self.step_name, self.arg_name)
