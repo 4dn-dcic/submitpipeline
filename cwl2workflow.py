@@ -285,10 +285,7 @@ class StepOutput (object):
         add target info from SourceTarget object
         """
         for st in cwl_sourcetarget_list:
-            print("before" + str(st.source_step))
-            print("parent" + parent_stepname)
             if st.source_step == parent_stepname and st.source_arg == self.name:
-                print("after" + str(st.source_step))
                 if not hasattr(self, 'target') or not self.target:
                     self.target = []
                 if hasattr(st, 'target') and st.target_step:
@@ -297,8 +294,6 @@ class StepOutput (object):
                 else:
                     self.target.append({"name": st.target_arg})
                     self.meta['global'] = True
-                    print(self.target)
-                    print(self.meta)
 
 
     def add_fdn_format_from_cwl(self, cwl_outputs):
