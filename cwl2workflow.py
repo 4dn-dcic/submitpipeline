@@ -1,3 +1,4 @@
+import wranglertools.fdnDCIC as fdnDCIC
 from uuid import uuid4
 import json
 import wget
@@ -738,7 +739,7 @@ def filter_swlist(sl, sl_exist):
     return(sl_new)
 
 
-def add_software_to_insert(docker_reponame, docker_version, insert_jsonfile):
+def add_software_to_insert(docker_reponame, docker_version, insert_jsonfile, post=False, keypairs_file=None):
     """
     downloads a text file from a docker repo that contains software info and adds them to insert_jsonfile
     """
@@ -756,6 +757,12 @@ def add_software_to_insert(docker_reponame, docker_version, insert_jsonfile):
     # overwrite insert_jsonfile
     with open(insert_jsonfile, 'w') as fw:
         json.dump(sl2, fw, sort_keys=True, indent=4)
+
+    #post to 4dn data portal
+    if post and keypairs_file:
+        key = fdnDCIC.FDN_Key(keypairs_file, "default")
+        connection = fdnDCIC.FDN_Connection(key)
+        response = fdnDCIC.new_FDN(connection, 'software', sl_filtered)
 
 
 def download_dockerinfo(docker_reponame, docker_version):
@@ -787,7 +794,7 @@ def download_cwl(cwlfile, subdir=None, branch='dev', cwlrepo='https://raw.github
     return cwlfile
 
 
-def add_workflow_to_insert(workflow_insert_jsonfile, software_insert_jsonfile, cwlfile, subdir=None, branch='dev', cwlrepo='https://raw.githubusercontent.com/4dn-dcic/pipelines-cwl', maindir='cwl_awsem'):
+def add_workflow_to_insert(workflow_insert_jsonfile, software_insert_jsonfile, cwlfile, subdir=None, branch='dev', cwlrepo='https://raw.githubusercontent.com/4dn-dcic/pipelines-cwl', maindir='cwl_awsem', post=False, keypairs_file=None):
     """
     downloads cwl file from cwl repo, adds software metadata link to it,
     and replaces the workflow insert json file by adding or updating (if exists) the workflow entry
@@ -823,6 +830,15 @@ def add_workflow_to_insert(workflow_insert_jsonfile, software_insert_jsonfile, c
     # overwrite the insert file
     with open(workflow_insert_jsonfile, 'w') as fw:
         json.dump(d, fw, sort_keys=True, indent=4)
+
+    #post to 4dn data portal
+    if post and keypairs_file:
+        key = fdnDCIC.FDN_Key(keypairs_file, "default")
+        connection = fdnDCIC.FDN_Connection(key)
+        if existing:
+            response = fdnDCIC.patch_FDN(wf.uuid, connection, wf)
+        else:
+            response = fdnDCIC.new_FDN(connection, wf.uuid, wf)
 
 
 def add_repliseq_software(docker_version='v11'):
