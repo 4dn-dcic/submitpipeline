@@ -794,19 +794,33 @@ def download_cwl(cwlfile, subdir=None, branch='dev', cwlrepo='https://raw.github
     return cwlfile
 
 
+def cwlfile2wfdict(cwlfile, software_insert_jsonfile=None):
+    cwl = create_cwl_from_file(cwlfile)
+
+    if software_insert_jsonfile:
+        with open(software_insert_jsonfile, 'r') as f:
+            software_dict_list = json.load(f)
+        sw_list = [Software(**_) for _ in software_dict_list]
+    else:
+        sw_list = None
+
+    wf = Workflow().create_from_cwl(cwl, sw_list)
+    return wf.as_dict()
+
+
+def cwlfile2wffile(cwlfile, wffile, software_insert_jsonfile=None):
+    wf = cwlfile2wfdict(cwlfile, software_insert_jsonfile)
+    with open(wffile, 'w') as fw:
+        print(json.dump(wf, fw, sort_keys=True, indent=4))
+
+
 def add_workflow_to_insert(workflow_insert_jsonfile, software_insert_jsonfile, cwlfile, subdir=None, branch='dev', cwlrepo='https://raw.githubusercontent.com/4dn-dcic/pipelines-cwl', maindir='cwl_awsem', post=False, keypairs_file=None):
     """
     downloads cwl file from cwl repo, adds software metadata link to it,
     and replaces the workflow insert json file by adding or updating (if exists) the workflow entry
     """
     cwlfile = download_cwl(cwlfile, subdir, branch, cwlrepo, maindir)
-    cwl = create_cwl_from_file(cwlfile)
-
-    with open(software_insert_jsonfile, 'r') as f:
-        software_dict_list = json.load(f)
-
-    sw_list = [Software(**_) for _ in software_dict_list]
-    wf = Workflow().create_from_cwl(cwl, sw_list)
+    wf = cwlfile2wf(cwlfile, software_insert_jsonfile)
 
     # if the uuid already exists in the insert, update that entry.
     # if not, add the new one.
@@ -814,18 +828,18 @@ def add_workflow_to_insert(workflow_insert_jsonfile, software_insert_jsonfile, c
         d = json.load(f)
     existing = False
     for i, wf_old in enumerate(d):
-        if wf.uuid == wf_old.get('uuid'):
-            d[i] = wf.as_dict()
+        if wf['uuid'] == wf_old.get('uuid'):
+            d[i] = wf
             existing = True
             break
-        if wf.name == wf_old.get('name'):
-            wf.uuid = wf_old.get('uuid')
-            d[i] = wf.as_dict()
+        if wf['name'] == wf_old.get('name'):
+            wf['uuid'] = wf_old.get('uuid')
+            d[i] = wf
             existing = True
             break
 
     if not existing:
-        d.append(wf.as_dict())
+        d.append(wf)
 
     # overwrite the insert file
     with open(workflow_insert_jsonfile, 'w') as fw:
@@ -836,9 +850,9 @@ def add_workflow_to_insert(workflow_insert_jsonfile, software_insert_jsonfile, c
         key = fdnDCIC.FDN_Key(keypairs_file, "default")
         connection = fdnDCIC.FDN_Connection(key)
         if existing:
-            response = fdnDCIC.patch_FDN(wf.uuid, connection, wf)
+            response = fdnDCIC.patch_FDN(wf['uuid'], connection, wf)
         else:
-            response = fdnDCIC.new_FDN(connection, wf.uuid, wf)
+            response = fdnDCIC.new_FDN(connection, wf['uuid'], wf)
 
 
 def add_repliseq_software(docker_version='v11'):
