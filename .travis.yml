@@ -1,0 +1,16 @@
+language: python
+sudo: false
+cache:
+  pip: true
+python:
+- '3.4'
+install:
+- pip install pip --upgrade
+- pip install six
+- pip install -U -r requirements.txt
+- pip install codacy-coverage
+script:
+- flake8
+- echo "good!"
+after_success:
+- python-codacy-coverage -r coverage.xml
