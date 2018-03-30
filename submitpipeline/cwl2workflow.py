@@ -811,8 +811,8 @@ def cwlfile2wfdict(cwlfile, software_insert_jsonfile=None, cwl_subdir=None):
     return wf.as_dict()
 
 
-def cwlfile2wffile(cwlfile, wffile, software_insert_jsonfile=None):
-    wf = cwlfile2wfdict(cwlfile, software_insert_jsonfile)
+def cwlfile2wffile(cwlfile, wffile, software_insert_jsonfile=None, cwl_subdir=None):
+    wf = cwlfile2wfdict(cwlfile, software_insert_jsonfile, cwl_subdir=cwl_subdir)
     with open(wffile, 'w') as fw:
         print(json.dump(wf, fw, sort_keys=True, indent=4))
 
@@ -823,7 +823,7 @@ def add_workflow_to_insert(workflow_insert_jsonfile, software_insert_jsonfile, c
     and replaces the workflow insert json file by adding or updating (if exists) the workflow entry
     """
     cwlfile = download_cwl(cwlfile, subdir, branch, cwlrepo, maindir)
-    wf = cwlfile2wfdict(cwlfile, software_insert_jsonfile)
+    wf = cwlfile2wfdict(cwlfile, software_insert_jsonfile, cwl_subdir=subdir)
 
     # if the uuid already exists in the insert, update that entry.
     # if not, add the new one.
