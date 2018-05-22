@@ -79,8 +79,18 @@ class Step (object):
         cwl: a Cwl object (for inputs, outputs, sourcetarget_list)
         """
         self.name = cwlstep.name
-        self.inputs = [StepInput().create_from_cwlstepinput(_, cwl) for _ in cwlstep.inputs]
-        self.outputs = [StepOutput().create_from_cwlstepoutput(self.name, _, cwl) for _ in cwlstep.outputs]
+
+        # step inputs
+        if hasattr(cwlstep, 'inputs'):  # cwl draft-3
+            self.inputs = [StepInput().create_from_cwlstepinput(_, cwl) for _ in cwlstep.inputs]
+        elif hasattr(cwlstep, '__in'):  # cwl v1.0
+            self.inputs = [StepInput().create_from_cwlstepinput(_, cwl) for _ in cwlstep.__in]
+
+        # step outputs
+        if hasattr(cwlstep, 'outputs'):  # cwl draft-3
+            self.outputs = [StepOutput().create_from_cwlstepoutput(self.name, _, cwl) for _ in cwlstep.outputs]
+        elif hasattr(cwlstep, 'out'):  # cwl v1.0
+            self.outputs = [StepOutput().create_from_cwlstepoutput(self.name, _, cwl) for _ in cwlstep.out]
         if cwlstep.fdn_step_meta:
             self.meta = cwlstep.fdn_step_meta.as_dict()
         return self
@@ -332,6 +342,44 @@ class StepOutput (object):
 
 
 class CwlOutput (object):
+    def __init__(self, id=None, outputSource=None, type=None,
+                 fdn_format=None, fdn_output_type=None,  # 4dn-specific custom fields
+                 fdn_secondary_file_formats=None):  # 4dn-specific custom field
+        """
+        take in elements of a cwl's 'outputs' field (dictionary) as kwargs
+        """
+        assert(id)
+
+        # id, name
+        self.id = id
+        self.name = id.strip('#')
+
+        # type (as in cwl), isFile, isArray (parsed)
+        self.type = type
+        self.isFile = False
+        self.isArray = False
+        if type:
+            if "File" in type:
+                self.isFile = True
+            else:
+                for t in type:
+                    if isinstance(t, dict) and 'type' in t and 'items' in t:
+                        if t.get('type') == 'array':
+                            self.isArray = True
+                            if t.get('items') == 'File':
+                                self.isFile = True
+
+        # source (as in cwl), source_step, source_arg (parsed)
+        if outputSource:
+            self.outputSource = outputSource
+            self.source_step, self.source_arg = self.source.strip('#').split('/')
+
+        self.fdn_format = fdn_format
+        self.fdn_output_type = fdn_output_type
+        self.fdn_secondary_file_formats = fdn_secondary_file_formats
+
+
+class CwlOutputD3 (object):
     def __init__(self, id=None, source=None, type=None,
                  fdn_format=None, fdn_output_type=None,  # 4dn-specific custom fields
                  fdn_secondary_file_formats=None):  # 4dn-specific custom field
@@ -405,7 +453,57 @@ class CwlInput (object):
         self.fdn_secondary_file_formats = fdn_secondary_file_formats
 
 
+class CwlInputD3 (object):
+    def __init__(self, id=None, type=None, default=None,
+                 fdn_format=None, fdn_secondary_file_formats=None):  # 4dn-specific custom fields
+        """
+        take in elements of a cwl's 'inputs' field (dictionary) as kwargs
+        """
+
+        # id (as in cwl), name (parsed)
+        self.id = id
+        if id:
+            self.name = id.strip('#')
+
+        # type (as in cwl), isFile, isArray (parsed)
+        self.type = type
+        self.isFile = False
+        self.isArray = False
+        if type:
+            if "File" in type:
+                self.isFile = True
+            else:
+                for t in type:
+                    if isinstance(t, dict) and 'type' in t and 'items' in t:
+                        if t.get('type') == 'array':
+                            self.isArray = True
+                            if t.get('items') == 'File':
+                                self.isFile = True
+
+        self.default = default
+        self.fdn_format = fdn_format
+        self.fdn_secondary_file_formats = fdn_secondary_file_formats
+
+
 class CwlStepOutput (object):
+    def __init__(self, id=None, fdn_format=None, fdn_type=None, fdn_cardinality=None):
+        """
+        take in elements of a cwl's 'steps::outputs' field (dictionary) as kwargs
+        """
+        assert(id)
+
+        # id (as in cwl), name, step_name, arg_name (parsed)
+        self.id = id
+        self.name = id.strip('#')
+        self.step_name, self.arg_name = self.name.split('/')
+
+        # 4dn tags
+        self.fdn_format = fdn_format
+        self.fdn_type = fdn_type
+        self.fdn_cardinality = fdn_cardinality
+
+
+class CwlStepOutputD3 (object):
     def __init__(self, id=None, fdn_format=None, fdn_type=None, fdn_cardinality=None):
         """
         take in elements of a cwl's 'steps::outputs' field (dictionary) as kwargs
@@ -424,6 +522,40 @@ class CwlStepOutput (object):
 
 
 class CwlStepInput (object):
+    def __init__(self, id=None, source=None, fdn_format=None, fdn_type=None, fdn_cardinality=None):
+        """
+        take in elements of a cwl's 'steps::inputs' field (dictionary) as kwargs
+        """
+        assert(id)
+
+        # id (as in cwl), name, step_name, arg_name (parsed)
+        self.id = id
+        self.name = id.strip('#')
+        self.step_name, self.arg_name = self.name.split('/')
+
+        # source (as in cwl), source_step, source_arg (parsed)
+        if source:
+            self.source = source
+            if len(self.source.strip('#').split('/')) == 2:
+                self.source_step, self.source_arg = self.source.strip('#').split('/')
+            else:
+                self.source_arg = self.source.strip('#')
+                self.source_step = None
+        else:
+            self.source = None
+            self.source_step = None
+            self.source_arg = None
+
+        # 4dn tags
+        self.fdn_format = fdn_format
+        self.fdn_type = fdn_type
+        self.fdn_cardinality = fdn_cardinality
+
+    def get_sourcetarget(self):
+        return SourceTarget(self.source_step, self.source_arg, self.step_name, self.arg_name)
+
+
+class CwlStepInputD3 (object):
     def __init__(self, id=None, source=None, fdn_format=None, fdn_type=None, fdn_cardinality=None):
         """
         take in elements of a cwl's 'steps::inputs' field (dictionary) as kwargs
@@ -458,6 +590,24 @@ class CwlStepInput (object):
 
 
 class CwlStep (object):
+    def __init__(self, id=None, run=None, out=None,
+                 scatter=None,
+                 fdn_step_meta=None,  # 4dn-specific custom tag
+                 **kwargs): # kwargs includes field 'in'
+        """
+        take in elements of a cwl's 'steps' field (dictionary) as kwargs
+        """
+        self.id = id
+        if id:
+            self.name = id.strip('#')
+        self.run = run
+        self.out = [CwlStepOutput(**_) for _ in out]
+        self.__in = [CwlStepInput(**_) for _ in kwargs.get('in')]
+        self.fdn_step_meta = CwlFdnStepMeta(**fdn_step_meta)
+        self.scatter = scatter
+
+
+class CwlStepD3 (object):
     def __init__(self, id=None, run=None, outputs=None, inputs=None,
                  scatter=None,
                  fdn_step_meta=None):  # 4dn-specific custom tag
@@ -468,9 +618,10 @@ class CwlStep (object):
         if id:
             self.name = id.strip('#')
         self.run = run
-        self.outputs = [CwlStepOutput(**_) for _ in outputs]
-        self.inputs = [CwlStepInput(**_) for _ in inputs]
-        self.fdn_step_meta = CwlFdnStepMeta(**fdn_step_meta)
+        self.outputs = [CwlStepOutputD3(**_) for _ in outputs]
+        self.inputs = [CwlStepInputD3(**_) for _ in inputs]
+        if fdn_step_meta:
+            self.fdn_step_meta = CwlFdnStepMeta(**fdn_step_meta)
         self.scatter = scatter
 
 
@@ -488,9 +639,15 @@ class Cwl (object):
         assert(self._class) == 'Workflow'
         assert(self.cwlVersion) == 'draft-3'
 
-        self.inputs = [CwlInput(**_) for _ in inputs]
-        self.outputs = [CwlOutput(**_) for _ in outputs]
-        self.steps = [CwlStep(**_) for _ in steps]
+        if self.cwlVersion == 'draft-3':
+            self.inputs = [CwlInputD3(**_) for _ in inputs]
+            self.outputs = [CwlOutputD3(**_) for _ in outputs]
+            self.steps = [CwlStepD3(**_) for _ in steps]
+        elif self.cwlVersion == 'v1.0':
+            self.inputs = [CwlInput(**_) for _ in inputs]
+            self.outputs = [CwlOutput(**_) for _ in outputs]
+            self.steps = [CwlStep(**_) for _ in steps]
+
         self.requirements = requirements
         if fdn_meta:
           self.fdn_meta = CwlFdnMeta(**fdn_meta)
@@ -553,6 +710,7 @@ def rdict(x):
     """
     recursive conversion to dictionary
     converts objects in list members to dictionary recursively
+    attributes beginning with '_' is converted to fields excluding the '_'
     """
     if isinstance(x, list):
         l = [rdict(_) for _ in x]
@@ -560,19 +718,34 @@ def rdict(x):
     elif isinstance(x, dict):
         x2={}
         for k, v in x.items():
-            x2[k] = rdict(v)
+            if k.startswith('_'):
+                k2 = k[1:]
+                x2[k2] = rdict(v)
+            else:
+                x2[k] = rdict(v)
         return x2
     else:
         if hasattr(x, '__dict__'):
             d = x.__dict__
             toremove=[]
+
+            # convert _key -> key
+            for k, v in d.items():
+                if k.startswith('_'):
+                    k2 = k[1:]
+                    d[k2] = v
+                    toremove.append(k)
+
+            # remove items with a None value
             for k, v in d.items():
                 if v is None:
                     toremove.append(k)
-                else:
-                    d[k] = rdict(v)
             for k in toremove:
                 del(d[k])
+
+            # go deep
+            for k, v in d.items():
+                d[k] = rdict(v)
             return d
         else:
             return x
@@ -809,6 +982,32 @@ def cwlfile2wfdict(cwlfile, software_insert_jsonfile=None, cwl_subdir=None):
 
     wf = Workflow(cwl_subdir=cwl_subdir).create_from_cwl(cwl, sw_list)
     return wf.as_dict()
+
+
+def cwld3_2_cwlv1(cwld3file, cwlv1file):
+    cwl = create_cwl_from_file(cwld3file)
+    if cwl.cwlVersion != 'draft-3':
+        raise Exception("CWL version is not draft-3")
+    cwldict = rdict(cwl)
+    cwldict['cwlVersion'] = 'v1.0'
+    for op in cwldict['outputs']:
+        if 'source' in op:
+            op['outputSource'] = op['source']
+            op['outputSource'] = op['outputSource'].replace('.', '/')
+            del(op['source'])
+    for st in cwldict['steps']:
+        for ip in st['inputs']:
+            ip['id'] = ip['id'].replace('.', '/')
+            if 'source' in ip:
+                ip['source'] = ip['source'].replace('.', '/')
+        for op in st['outputs']:
+            op['id'] = op['id'].replace('.', '/')
+        st['in'] = st['inputs']
+        del(st['inputs'])
+        st['out'] = st['outputs']
+        del(st['outputs'])
+    with open(cwlv1file, 'w') as fw:
+        print(json.dump(cwldict, fw, sort_keys=True, indent=4))
 
 
 def cwlfile2wffile(cwlfile, wffile, software_insert_jsonfile=None, cwl_subdir=None):
