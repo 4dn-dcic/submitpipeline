@@ -342,9 +342,10 @@ class StepOutput (object):
 
 
 class CwlOutput (object):
-    def __init__(self, id=None, outputSource=None, type=None,
+    def __init__(self, id=None, outputSource=None, doc=None,
                  fdn_format=None, fdn_output_type=None,  # 4dn-specific custom fields
-                 fdn_secondary_file_formats=None):  # 4dn-specific custom field
+                 fdn_secondary_file_formats=None,  # 4dn-specific custom field
+                 **kwargs):  # for type
         """
         take in elements of a cwl's 'outputs' field (dictionary) as kwargs
         """
@@ -355,14 +356,14 @@ class CwlOutput (object):
         self.name = id.strip('#')
 
         # type (as in cwl), isFile, isArray (parsed)
-        self.type = type
+        self._type = kwargs.get("type")
         self.isFile = False
         self.isArray = False
-        if type:
-            if "File" in type:
+        if self._type:
+            if "File" in self._type:
                 self.isFile = True
             else:
-                for t in type:
+                for t in self._type:
                     if isinstance(t, dict) and 'type' in t and 'items' in t:
                         if t.get('type') == 'array':
                             self.isArray = True
@@ -375,14 +376,16 @@ class CwlOutput (object):
             self.source_step, self.source_arg = self.source.strip('#').split('/')
 
         self.fdn_format = fdn_format
+        self.doc = doc
         self.fdn_output_type = fdn_output_type
         self.fdn_secondary_file_formats = fdn_secondary_file_formats
 
 
 class CwlOutputD3 (object):
-    def __init__(self, id=None, source=None, type=None,
+    def __init__(self, id=None, source=None, description=None,
                  fdn_format=None, fdn_output_type=None,  # 4dn-specific custom fields
-                 fdn_secondary_file_formats=None):  # 4dn-specific custom field
+                 fdn_secondary_file_formats=None,  # 4dn-specific custom field
+                 **kwargs):  # for type
         """
         take in elements of a cwl's 'outputs' field (dictionary) as kwargs
         """
@@ -393,14 +396,14 @@ class CwlOutputD3 (object):
         self.name = id.strip('#')
 
         # type (as in cwl), isFile, isArray (parsed)
-        self.type = type
+        self._type = kwargs.get("type")
         self.isFile = False
         self.isArray = False
-        if type:
-            if "File" in type:
+        if self._type:
+            if "File" in self._type:
                 self.isFile = True
             else:
-                for t in type:
+                for t in self._type:
                     if isinstance(t, dict) and 'type' in t and 'items' in t:
                         if t.get('type') == 'array':
                             self.isArray = True
@@ -413,6 +416,7 @@ class CwlOutputD3 (object):
             self.source_step, self.source_arg = self.source.strip('#').split('.')
 
         self.fdn_format = fdn_format
+        self.description = description
         self.fdn_output_type = fdn_output_type
         self.fdn_secondary_file_formats = fdn_secondary_file_formats
 
@@ -422,8 +426,9 @@ class CwlOutputD3 (object):
 
 
 class CwlInput (object):
-    def __init__(self, id=None, type=None, default=None,
-                 fdn_format=None, fdn_secondary_file_formats=None):  # 4dn-specific custom fields
+    def __init__(self, id=None, default=None, doc=None,
+                 fdn_format=None, fdn_secondary_file_formats=None,  # 4dn-specific custom fields
+                 **kwargs):  # including id and type
         """
         take in elements of a cwl's 'inputs' field (dictionary) as kwargs
         """
@@ -434,14 +439,14 @@ class CwlInput (object):
             self.name = id.strip('#')
 
         # type (as in cwl), isFile, isArray (parsed)
-        self.type = type
+        self._type = kwargs.get("type")
         self.isFile = False
         self.isArray = False
-        if type:
-            if "File" in type:
+        if self._type:
+            if "File" in self._type:
                 self.isFile = True
             else:
-                for t in type:
+                for t in self._type:
                     if isinstance(t, dict) and 'type' in t and 'items' in t:
                         if t.get('type') == 'array':
                             self.isArray = True
@@ -449,13 +454,15 @@ class CwlInput (object):
                                 self.isFile = True
 
         self.default = default
+        self.doc = doc
         self.fdn_format = fdn_format
         self.fdn_secondary_file_formats = fdn_secondary_file_formats
 
 
 class CwlInputD3 (object):
-    def __init__(self, id=None, type=None, default=None,
-                 fdn_format=None, fdn_secondary_file_formats=None):  # 4dn-specific custom fields
+    def __init__(self, id=None, default=None, description=None,
+                 fdn_format=None, fdn_secondary_file_formats=None,  # 4dn-specific custom fields
+                 **kwargs):  # including id and type
         """
         take in elements of a cwl's 'inputs' field (dictionary) as kwargs
         """
@@ -466,14 +473,14 @@ class CwlInputD3 (object):
             self.name = id.strip('#')
 
         # type (as in cwl), isFile, isArray (parsed)
-        self.type = type
+        self._type = kwargs.get("type")
         self.isFile = False
         self.isArray = False
-        if type:
-            if "File" in type:
+        if self._type:
+            if "File" in self._type:
                 self.isFile = True
             else:
-                for t in type:
+                for t in self._type:
                     if isinstance(t, dict) and 'type' in t and 'items' in t:
                         if t.get('type') == 'array':
                             self.isArray = True
@@ -481,6 +488,7 @@ class CwlInputD3 (object):
                                 self.isFile = True
 
         self.default = default
+        self.description = description
         self.fdn_format = fdn_format
         self.fdn_secondary_file_formats = fdn_secondary_file_formats
 
@@ -703,8 +711,11 @@ class SourceTarget (object):
 def create_cwl_from_file(file):
     with open(file, 'r') as f:
         cwldict = json.load(f)
-    return Cwl(**cwldict)
-
+    try:
+        return Cwl(**cwldict)
+    except AssertionError as e:
+        print e
+        return None
 
 def rdict(x):
     """
@@ -985,7 +996,11 @@ def cwlfile2wfdict(cwlfile, software_insert_jsonfile=None, cwl_subdir=None):
 
 
 def cwld3_2_cwlv1(cwld3file, cwlv1file):
+    print("processing cwl %s" % cwld3file)
     cwl = create_cwl_from_file(cwld3file)
+    if not cwl:
+        print("Not writing v1 file")
+        return 0
     if cwl.cwlVersion != 'draft-3':
         raise Exception("CWL version is not draft-3")
     cwldict = rdict(cwl)
@@ -1006,6 +1021,14 @@ def cwld3_2_cwlv1(cwld3file, cwlv1file):
         del(st['inputs'])
         st['out'] = st['outputs']
         del(st['outputs'])
+    for op in cwldict['outputs']:
+        if 'description' in op:
+            op['doc'] = op['description']
+            del(op['description'])
+    for ip in cwldict['inputs']:
+        if 'description' in ip:
+            ip['doc'] = ip['description']
+            del(ip['description'])
     with open(cwlv1file, 'w') as fw:
         print(json.dump(cwldict, fw, sort_keys=True, indent=4))
 
