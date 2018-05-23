@@ -4,6 +4,10 @@ import json
 import wget
 
 
+# Field/attribute names ending with '__' (e.g. isFile__) are excluded on serialization.
+# They are internal use only. (e.g. class to class conversion)
+
+
 class Workflow (object):
     def __init__(self, uuid=None, steps=None, arguments=None, cwl_subdir=None):
         if uuid:
@@ -76,9 +80,9 @@ class Step (object):
     def create_from_cwlstep(self, cwlstep, cwl):
         """
         cwlstep: a CwlStep object (a single step element)
-        cwl: a Cwl object (for inputs, outputs, sourcetarget_list)
+        cwl: a Cwl object (for inputs, outputs, sourcetarget_list__)
         """
-        self.name = cwlstep.name
+        self.name = cwlstep.name__
 
         # step inputs
         if hasattr(cwlstep, 'inputs'):  # cwl draft-3
@@ -142,7 +146,7 @@ class Argument (object):
         """
         convert from a CwlOutput object
         """
-        self.workflow_argument_name = cwl_output.name
+        self.workflow_argument_name = cwl_output.name__
         if cwl_output.fdn_format:
             self.argument_format = cwl_output.fdn_format
         if cwl_output.fdn_output_type:
@@ -156,8 +160,8 @@ class Argument (object):
         """
         convert from a CwlInput object
         """
-        self.workflow_argument_name = cwl_input.name
-        if cwl_input.isFile:
+        self.workflow_argument_name = cwl_input.name__
+        if cwl_input.isFile__:
             self.argument_type = "Input file"
         else:
             self.argument_type = "parameter"
@@ -171,15 +175,15 @@ class Argument (object):
 class StepInput (object):
     def __init__(self, name=None,
                  source_name=None,
-                 source_step=None):
+                 source_step__=None):
 
         self.name = name
         self.meta = {"global": False}  # default global false
 
         if source_name:
             self.source = [{ "name": source_name }]
-            if source_step:
-                self.source[0].append({"step": source_step})
+            if source_step__:
+                self.source[0].append({"step": source_step__})
             else:
                 self.meta['global'] = True
 
@@ -191,18 +195,18 @@ class StepInput (object):
         """
         convert from a CwlStepInput object
         cwl_stepinput: a CwlStepInput object (a single step input element)
-        cwl: a Cwl object (for inputs, outputs, sourcetarget_list)
+        cwl: a Cwl object (for inputs, outputs, sourcetarget_list__)
         """
         # add name
         self.name = cwl_stepinput.arg_name
 
         # add source
         if cwl_stepinput.source:
-            if cwl_stepinput.source_step:
-                self.source = [{ "name": cwl_stepinput.source_arg,
-                                 "step": cwl_stepinput.source_step }]
+            if cwl_stepinput.source_step__:
+                self.source = [{ "name": cwl_stepinput.source_arg__,
+                                 "step": cwl_stepinput.source_step__ }]
             else:
-                self.source = [{ "name": cwl_stepinput.source_arg }]
+                self.source = [{ "name": cwl_stepinput.source_arg__ }]
                 self.meta['global'] = True
 
         # add format (from global arguments)
@@ -232,7 +236,7 @@ class StepInput (object):
 
         if self.meta['global']:
             for op in cwl_inputs:
-                if op.name == workflow_arg_name:
+                if op.name__ == workflow_arg_name:
                     self.meta['file_format'] = op.fdn_format
                     self.meta['type'] = cwl_stepinput.fdn_type
                     self.meta['cardinality'] = cwl_stepinput.fdn_cardinality
@@ -242,7 +246,7 @@ class StepInput (object):
 class StepOutput (object):
     def __init__(self, name=None, 
                  target_name=None,
-                 target_step=None):
+                 target_step__=None):
 
         self.name = name
         self.target = None
@@ -251,8 +255,8 @@ class StepOutput (object):
 
         if target_name:
             self.target = [{ "name": target_name }]
-            if target_step:
-                self.target[0].append({"step": target_step})
+            if target_step__:
+                self.target[0].append({"step": target_step__})
             else:
                 self.meta['global'] = True
 
@@ -269,7 +273,7 @@ class StepOutput (object):
         cwl : a Cwl object
         """
         self.name = cwl_stepoutput.arg_name
-        self.add_target_from_cwloutputs(parent_stepname, cwl.sourcetarget_list)
+        self.add_target_from_cwloutputs(parent_stepname, cwl.sourcetarget_list__)
 
         # format (from global arguments)
         # self.add_fdn_tags_from_cwl(cwl.outputs)
@@ -285,19 +289,19 @@ class StepOutput (object):
         return self
 
 
-    def add_target_from_cwloutputs(self, parent_stepname, cwl_sourcetarget_list):
+    def add_target_from_cwloutputs(self, parent_stepname, cwl_sourcetarget_list__):
         """
         add target info from SourceTarget object
         """
-        for st in cwl_sourcetarget_list:
-            if st.source_step == parent_stepname and st.source_arg == self.name:
+        for st in cwl_sourcetarget_list__:
+            if st.source_step__ == parent_stepname and st.source_arg__ == self.name:
                 if not hasattr(self, 'target') or not self.target:
                     self.target = []
-                if st.target_step:
-                    self.target.append({"name": st.target_arg,
-                                        "step": st.target_step})
+                if st.target_step__:
+                    self.target.append({"name": st.target_arg__,
+                                        "step": st.target_step__})
                 else:
-                    self.target.append({"name": st.target_arg})
+                    self.target.append({"name": st.target_arg__})
                     self.meta['global'] = True
 
 
@@ -315,7 +319,7 @@ class StepOutput (object):
 
         if self.meta['global']:
             for op in cwl_outputs:
-                if op.name == workflow_arg_name:
+                if op.name__ == workflow_arg_name:
                     self.meta['file_format'] = op.fdn_format
                     self.meta['type'] = op.fdn_type
                     self.meta['cardinality'] = op.fdn_cardinality
@@ -336,7 +340,7 @@ class StepOutput (object):
 
         if self.meta['global']:
             for op in cwl_outputs:
-                if op.name == workflow_arg_name:
+                if op.name__ == workflow_arg_name:
                     self.meta['argument_type'] = op.fdn_output_type
                     break
 
@@ -353,27 +357,27 @@ class CwlOutput (object):
 
         # id, name
         self.id = id
-        self.name = id.strip('#')
+        self.name__ = id.strip('#')
 
-        # type (as in cwl), isFile, isArray (parsed)
+        # type (as in cwl), isFile__, isArray__ (parsed)
         self._type = kwargs.get("type")
-        self.isFile = False
-        self.isArray = False
+        self.isFile__ = False
+        self.isArray__ = False
         if self._type:
             if "File" in self._type:
-                self.isFile = True
+                self.isFile__ = True
             else:
                 for t in self._type:
                     if isinstance(t, dict) and 'type' in t and 'items' in t:
                         if t.get('type') == 'array':
-                            self.isArray = True
+                            self.isArray__ = True
                             if t.get('items') == 'File':
-                                self.isFile = True
+                                self.isFile__ = True
 
-        # source (as in cwl), source_step, source_arg (parsed)
+        # source (as in cwl), source_step__, source_arg__ (parsed)
         if outputSource:
             self.outputSource = outputSource
-            self.source_step, self.source_arg = self.source.strip('#').split('/')
+            self.source_step__, self.source_arg__ = self.source.strip('#').split('/')
 
         self.fdn_format = fdn_format
         self.doc = doc
@@ -393,27 +397,27 @@ class CwlOutputD3 (object):
 
         # id, name
         self.id = id
-        self.name = id.strip('#')
+        self.name__ = id.strip('#')
 
-        # type (as in cwl), isFile, isArray (parsed)
+        # type (as in cwl), isFile__, isArray__ (parsed)
         self._type = kwargs.get("type")
-        self.isFile = False
-        self.isArray = False
+        self.isFile__ = False
+        self.isArray__ = False
         if self._type:
             if "File" in self._type:
-                self.isFile = True
+                self.isFile__ = True
             else:
                 for t in self._type:
                     if isinstance(t, dict) and 'type' in t and 'items' in t:
                         if t.get('type') == 'array':
-                            self.isArray = True
+                            self.isArray__ = True
                             if t.get('items') == 'File':
-                                self.isFile = True
+                                self.isFile__ = True
 
-        # source (as in cwl), source_step, source_arg (parsed)
+        # source (as in cwl), source_step__, source_arg__ (parsed)
         if source:
             self.source = source
-            self.source_step, self.source_arg = self.source.strip('#').split('.')
+            self.source_step__, self.source_arg__ = self.source.strip('#').split('.')
 
         self.fdn_format = fdn_format
         self.description = description
@@ -422,7 +426,7 @@ class CwlOutputD3 (object):
 
 
     def get_sourcetarget(self):
-        return SourceTarget(self.source_step, self.source_arg, None, self.name)
+        return SourceTarget(self.source_step__, self.source_arg__, None, self.name__)
 
 
 class CwlInput (object):
@@ -436,22 +440,22 @@ class CwlInput (object):
         # id (as in cwl), name (parsed)
         self.id = id
         if id:
-            self.name = id.strip('#')
+            self.name__ = id.strip('#')
 
-        # type (as in cwl), isFile, isArray (parsed)
+        # type (as in cwl), isFile__, isArray__ (parsed)
         self._type = kwargs.get("type")
-        self.isFile = False
-        self.isArray = False
+        self.isFile__ = False
+        self.isArray__ = False
         if self._type:
             if "File" in self._type:
-                self.isFile = True
+                self.isFile__ = True
             else:
                 for t in self._type:
                     if isinstance(t, dict) and 'type' in t and 'items' in t:
                         if t.get('type') == 'array':
-                            self.isArray = True
+                            self.isArray__ = True
                             if t.get('items') == 'File':
-                                self.isFile = True
+                                self.isFile__ = True
 
         self.default = default
         self.doc = doc
@@ -470,22 +474,22 @@ class CwlInputD3 (object):
         # id (as in cwl), name (parsed)
         self.id = id
         if id:
-            self.name = id.strip('#')
+            self.name__ = id.strip('#')
 
-        # type (as in cwl), isFile, isArray (parsed)
+        # type (as in cwl), isFile__, isArray__ (parsed)
         self._type = kwargs.get("type")
-        self.isFile = False
-        self.isArray = False
+        self.isFile__ = False
+        self.isArray__ = False
         if self._type:
             if "File" in self._type:
-                self.isFile = True
+                self.isFile__ = True
             else:
                 for t in self._type:
                     if isinstance(t, dict) and 'type' in t and 'items' in t:
                         if t.get('type') == 'array':
-                            self.isArray = True
+                            self.isArray__ = True
                             if t.get('items') == 'File':
-                                self.isFile = True
+                                self.isFile__ = True
 
         self.default = default
         self.description = description
@@ -500,10 +504,10 @@ class CwlStepOutput (object):
         """
         assert(id)
 
-        # id (as in cwl), name, step_name, arg_name (parsed)
+        # id (as in cwl), name, step_name__, arg_name (parsed)
         self.id = id
-        self.name = id.strip('#')
-        self.step_name, self.arg_name = self.name.split('/')
+        self.name__ = id.strip('#')
+        self.step_name__, self.arg_name = self.name__.split('/')
 
         # 4dn tags
         self.fdn_format = fdn_format
@@ -518,10 +522,10 @@ class CwlStepOutputD3 (object):
         """
         assert(id)
 
-        # id (as in cwl), name, step_name, arg_name (parsed)
+        # id (as in cwl), name, step_name__, arg_name (parsed)
         self.id = id
-        self.name = id.strip('#')
-        self.step_name, self.arg_name = self.name.split('.')
+        self.name__ = id.strip('#')
+        self.step_name__, self.arg_name = self.name__.split('.')
 
         # 4dn tags
         self.fdn_format = fdn_format
@@ -536,23 +540,23 @@ class CwlStepInput (object):
         """
         assert(id)
 
-        # id (as in cwl), name, step_name, arg_name (parsed)
+        # id (as in cwl), name, step_name__, arg_name (parsed)
         self.id = id
-        self.name = id.strip('#')
-        self.step_name, self.arg_name = self.name.split('/')
+        self.name__ = id.strip('#')
+        self.step_name__, self.arg_name = self.name__.split('/')
 
-        # source (as in cwl), source_step, source_arg (parsed)
+        # source (as in cwl), source_step__, source_arg__ (parsed)
         if source:
             self.source = source
             if len(self.source.strip('#').split('/')) == 2:
-                self.source_step, self.source_arg = self.source.strip('#').split('/')
+                self.source_step__, self.source_arg__ = self.source.strip('#').split('/')
             else:
-                self.source_arg = self.source.strip('#')
-                self.source_step = None
+                self.source_arg__ = self.source.strip('#')
+                self.source_step__ = None
         else:
             self.source = None
-            self.source_step = None
-            self.source_arg = None
+            self.source_step__ = None
+            self.source_arg__ = None
 
         # 4dn tags
         self.fdn_format = fdn_format
@@ -560,7 +564,7 @@ class CwlStepInput (object):
         self.fdn_cardinality = fdn_cardinality
 
     def get_sourcetarget(self):
-        return SourceTarget(self.source_step, self.source_arg, self.step_name, self.arg_name)
+        return SourceTarget(self.source_step__, self.source_arg__, self.step_name__, self.arg_name)
 
 
 class CwlStepInputD3 (object):
@@ -570,23 +574,23 @@ class CwlStepInputD3 (object):
         """
         assert(id)
 
-        # id (as in cwl), name, step_name, arg_name (parsed)
+        # id (as in cwl), name, step_name__, arg_name (parsed)
         self.id = id
-        self.name = id.strip('#')
-        self.step_name, self.arg_name = self.name.split('.')
+        self.name__ = id.strip('#')
+        self.step_name__, self.arg_name = self.name__.split('.')
 
-        # source (as in cwl), source_step, source_arg (parsed)
+        # source (as in cwl), source_step__, source_arg__ (parsed)
         if source:
             self.source = source
             if len(self.source.strip('#').split('.')) == 2:
-                self.source_step, self.source_arg = self.source.strip('#').split('.')
+                self.source_step__, self.source_arg__ = self.source.strip('#').split('.')
             else:
-                self.source_arg = self.source.strip('#')
-                self.source_step = None
+                self.source_arg__ = self.source.strip('#')
+                self.source_step__ = None
         else:
             self.source = None
-            self.source_step = None
-            self.source_arg = None
+            self.source_step__ = None
+            self.source_arg__ = None
 
         # 4dn tags
         self.fdn_format = fdn_format
@@ -594,7 +598,7 @@ class CwlStepInputD3 (object):
         self.fdn_cardinality = fdn_cardinality
 
     def get_sourcetarget(self):
-        return SourceTarget(self.source_step, self.source_arg, self.step_name, self.arg_name)
+        return SourceTarget(self.source_step__, self.source_arg__, self.step_name__, self.arg_name)
 
 
 class CwlStep (object):
@@ -607,7 +611,7 @@ class CwlStep (object):
         """
         self.id = id
         if id:
-            self.name = id.strip('#')
+            self.name__ = id.strip('#')
         self.run = run
         self.out = [CwlStepOutput(**_) for _ in out]
         self.__in = [CwlStepInput(**_) for _ in kwargs.get('in')]
@@ -624,7 +628,7 @@ class CwlStepD3 (object):
         """
         self.id = id
         if id:
-            self.name = id.strip('#')
+            self.name__ = id.strip('#')
         self.run = run
         self.outputs = [CwlStepOutputD3(**_) for _ in outputs]
         self.inputs = [CwlStepInputD3(**_) for _ in inputs]
@@ -663,9 +667,9 @@ class Cwl (object):
           self.fdn_meta = None
 
         # list of all SourceTarget objects in CWL
-        self.sourcetarget_list = [_.get_sourcetarget() for _ in self.outputs]
+        self.sourcetarget_list__ = [_.get_sourcetarget() for _ in self.outputs]
         for step in self.steps:
-            self.sourcetarget_list.extend([_.get_sourcetarget() for _ in step.inputs])
+            self.sourcetarget_list__.extend([_.get_sourcetarget() for _ in step.inputs])
 
  
 class CwlFdnMeta (object):
@@ -697,11 +701,11 @@ class CwlFdnStepMeta (object):
 
 
 class SourceTarget (object):
-    def __init__(self, source_step=None, source_arg=None, target_step=None, target_arg=None):
-        self.source_step = source_step
-        self.source_arg = source_arg
-        self.target_step = target_step
-        self.target_arg = target_arg
+    def __init__(self, source_step__=None, source_arg__=None, target_step__=None, target_arg__=None):
+        self.source_step__ = source_step__
+        self.source_arg__ = source_arg__
+        self.target_step__ = target_step__
+        self.target_arg__ = target_arg__
 
 
     def as_dict(self):
@@ -724,11 +728,13 @@ def rdict(x):
     attributes beginning with '_' is converted to fields excluding the '_'
     """
     if isinstance(x, list):
-        l = [rdict(_) for _ in x]
+        l = [rdict(y) for y in x]
         return l
     elif isinstance(x, dict):
         x2={}
         for k, v in x.items():
+            if k.endswith('__'):
+                continue
             if k.startswith('_'):
                 k2 = k[1:]
                 x2[k2] = rdict(v)
@@ -746,12 +752,14 @@ def rdict(x):
                     k2 = k[1:]
                     d[k2] = v
                     toremove.append(k)
+                if k.endswith('__'):  # internal use only
+                    toremove.append(k)
 
             # remove items with a None value
             for k, v in d.items():
                 if v is None:
                     toremove.append(k)
-            for k in toremove:
+            for k in set(toremove):
                 del(d[k])
 
             # go deep
@@ -1021,6 +1029,8 @@ def cwld3_2_cwlv1(cwld3file, cwlv1file):
         del(st['inputs'])
         st['out'] = st['outputs']
         del(st['outputs'])
+        if 'scatter' in st:
+            st['scatter'] = st['scatter'].replace('.', '/')
     for op in cwldict['outputs']:
         if 'description' in op:
             op['doc'] = op['description']
