@@ -87,8 +87,8 @@ class Step (object):
         # step inputs
         if hasattr(cwlstep, 'inputs'):  # cwl draft-3
             self.inputs = [StepInput().create_from_cwlstepinput(_, cwl) for _ in cwlstep.inputs]
-        elif hasattr(cwlstep, '__in'):  # cwl v1.0
-            self.inputs = [StepInput().create_from_cwlstepinput(_, cwl) for _ in cwlstep.__in]
+        elif hasattr(cwlstep, '_in'):  # cwl v1.0
+            self.inputs = [StepInput().create_from_cwlstepinput(_, cwl) for _ in cwlstep._in]
 
         # step outputs
         if hasattr(cwlstep, 'outputs'):  # cwl draft-3
@@ -377,12 +377,15 @@ class CwlOutput (object):
         # source (as in cwl), source_step__, source_arg__ (parsed)
         if outputSource:
             self.outputSource = outputSource
-            self.source_step__, self.source_arg__ = self.source.strip('#').split('/')
+            self.source_step__, self.source_arg__ = self.outputSource.strip('#').split('/')
 
         self.fdn_format = fdn_format
         self.doc = doc
         self.fdn_output_type = fdn_output_type
         self.fdn_secondary_file_formats = fdn_secondary_file_formats
+
+    def get_sourcetarget(self):
+        return SourceTarget(self.source_step__, self.source_arg__, None, self.name__)
 
 
 class CwlOutputD3 (object):
@@ -423,7 +426,6 @@ class CwlOutputD3 (object):
         self.description = description
         self.fdn_output_type = fdn_output_type
         self.fdn_secondary_file_formats = fdn_secondary_file_formats
-
 
     def get_sourcetarget(self):
         return SourceTarget(self.source_step__, self.source_arg__, None, self.name__)
@@ -498,7 +500,7 @@ class CwlInputD3 (object):
 
 
 class CwlStepOutput (object):
-    def __init__(self, id=None, fdn_format=None, fdn_type=None, fdn_cardinality=None):
+    def __init__(self, id=None, fdn_format=None, fdn_type=None, fdn_cardinality=None, arg_name=None):
         """
         take in elements of a cwl's 'steps::outputs' field (dictionary) as kwargs
         """
@@ -508,6 +510,7 @@ class CwlStepOutput (object):
         self.id = id
         self.name__ = id.strip('#')
         self.step_name__, self.arg_name = self.name__.split('/')
+        self.arg_name = arg_name
 
         # 4dn tags
         self.fdn_format = fdn_format
@@ -534,7 +537,8 @@ class CwlStepOutputD3 (object):
 
 
 class CwlStepInput (object):
-    def __init__(self, id=None, source=None, fdn_format=None, fdn_type=None, fdn_cardinality=None):
+    def __init__(self, id=None, source=None, fdn_format=None, fdn_type=None, fdn_cardinality=None,
+                 arg_name=None):
         """
         take in elements of a cwl's 'steps::inputs' field (dictionary) as kwargs
         """
@@ -544,6 +548,7 @@ class CwlStepInput (object):
         self.id = id
         self.name__ = id.strip('#')
         self.step_name__, self.arg_name = self.name__.split('/')
+        self.arg_name = arg_name
 
         # source (as in cwl), source_step__, source_arg__ (parsed)
         if source:
@@ -614,7 +619,7 @@ class CwlStep (object):
             self.name__ = id.strip('#')
         self.run = run
         self.out = [CwlStepOutput(**_) for _ in out]
-        self.__in = [CwlStepInput(**_) for _ in kwargs.get('in')]
+        self._in = [CwlStepInput(**_) for _ in kwargs.get('in')]
         self.fdn_step_meta = CwlFdnStepMeta(**fdn_step_meta)
         self.scatter = scatter
 
@@ -648,8 +653,7 @@ class Cwl (object):
         self._class = kwargs.get('class')
         self.cwlVersion = cwlVersion
 
-        assert(self._class) == 'Workflow'
-        assert(self.cwlVersion) == 'draft-3'
+        assert(self._class == 'Workflow')
 
         if self.cwlVersion == 'draft-3':
             self.inputs = [CwlInputD3(**_) for _ in inputs]
@@ -668,8 +672,12 @@ class Cwl (object):
 
         # list of all SourceTarget objects in CWL
         self.sourcetarget_list__ = [_.get_sourcetarget() for _ in self.outputs]
-        for step in self.steps:
-            self.sourcetarget_list__.extend([_.get_sourcetarget() for _ in step.inputs])
+        if self.cwlVersion == 'draft-3':
+            for step in self.steps:
+                self.sourcetarget_list__.extend([_.get_sourcetarget() for _ in step.inputs])
+        elif self.cwlVersion == 'v1.0':
+            for step in self.steps:
+                self.sourcetarget_list__.extend([_.get_sourcetarget() for _ in step._in])
 
  
 class CwlFdnMeta (object):
@@ -718,7 +726,7 @@ def create_cwl_from_file(file):
     try:
         return Cwl(**cwldict)
     except AssertionError as e:
-        print e
+        print(e)
         return None
 
 def rdict(x):
@@ -897,12 +905,10 @@ def parser(textfile):
                 if startover:
                     swlist.append(Software())
                 startover = False
-    
                 if x.startswith('##'):
                     field, value = x.strip('## ').split(': ')[0:2]
                     field = field.strip(':')
                     swlist[-1].add(**{map_field(field): value})
-
     return swlist
 
 
@@ -991,7 +997,6 @@ def download_cwl(cwlfile, subdir=None, branch='dev', cwlrepo='https://raw.github
 
 def cwlfile2wfdict(cwlfile, software_insert_jsonfile=None, cwl_subdir=None):
     cwl = create_cwl_from_file(cwlfile)
-
     if software_insert_jsonfile:
         with open(software_insert_jsonfile, 'r') as f:
             software_dict_list = json.load(f)
